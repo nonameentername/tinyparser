@@ -1,0 +1,10 @@
+This project used flex and bison to generate C++
+code that parses a subset of the C language.
+
+To build this project type the following into a console:
+   make
+
+To run the program in unix/linux type the following:
+   cat <textfile> | parser
+
+The project works.

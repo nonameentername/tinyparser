@@ -1,40 +1,47 @@
 %{
     /*** C includes ***/
 
-#include <stdio.h>
+#include <string>
+#include <iostream>
+#include <math.h>
+#include "treebuilder.h"
 #include "parser.tab.h"
+
 //#define DEBUG
 
-int  yywrap();
-void printn(char *token);
+using namespace std;
+using namespace AST;
 
+void printn(string token);
+
+char *p;
 %}
     /*** Definitions ***/
 
-ALPHA    [A-za-z]
+ALPHA    [a-zA-Z]
 NUM      [0-9]
-ALPHANUM [A-za-z0-9]
+ALPHANUM [a-zA-Z0-9]
 
 %%
     /*** Rules ***/
 
-";"                     { printn("SEMICOLON");  return SEMICOLON;       }
-"("                     { printn("LPAREN");     return LPAREN;          }
-")"                     { printn("RPAREN");     return RPAREN;          }
-","                     { printn("COMMA");      return COMMA;           }
-"{"                     { printn("LBRACE");     return LBRACE;          }
-"}"                     { printn("RBRACE");     return RBRACE;          }
-"["                     { printn("LBRACKET");   return LBRACKET;        }
-"]"                     { printn("RBRACKET");   return RBRACKET;        }
-"="                     { printn("ASSIGN");     return ASSIGN;          }
-"<"                     { printn("LT");         return LT;              }
-">"                     { printn("GT");         return GT;              }
+";"                     { printn("SEMICOLON");  return ';';             }
+"("                     { printn("LPAREN");     return '(';             }
+")"                     { printn("RPAREN");     return ')';             }
+","                     { printn("COMMA");      return ',';             }
+"{"                     { printn("LBRACE");     return '{';             }
+"}"                     { printn("RBRACE");     return '}';             }
+"["                     { printn("LBRACKET");   return '[';             }
+"]"                     { printn("RBRACKET");   return ']';             }
+"="                     { printn("ASSIGN");     return '=';             }
+"<"                     { printn("LT");         return '<';             }
+">"                     { printn("GT");         return '>';             }
 "=="                    { printn("EQ");         return EQ;              }
-"+"                     { printn("PLUS");       return PLUS;            }
-"-"                     { printn("MINUS");      return MINUS;           }
-"*"                     { printn("MULT");       return MULT;            }
-"/"                     { printn("DIV");        return DIV;             }
-"!"                     { printn("NOT");        return NOT;             }
+"+"                     { printn("PLUS");       return '+';             }
+"-"                     { printn("MINUS");      return '-';             }
+"*"                     { printn("MULT");       return '*';             }
+"/"                     { printn("DIV");        return '/';             }
+"!"                     { printn("NOT");        return '!';             }
 "&&"                    { printn("AND");        return AND;             }
 "||"                    { printn("OR");         return OR;              }
 "if"                    { printn("IF");         return IF;              }
@@ -42,12 +49,24 @@ ALPHANUM [A-za-z0-9]
 "while"                 { printn("WHILE");      return WHILE;           }
 "int"                   { printn("INT");        return INT;             }
 "float"                 { printn("FLOAT");      return FLOAT;           }
-{ALPHA}{ALPHANUM}*      { printn("ID");         return ID;              }
-{NUM}+                  { printn("ICONST");     return ICONST;          }
+{ALPHA}{ALPHANUM}*      {
+                           printn("ID");
+                           yylval.t_string = new string(yytext);
+                           return ID;              
+                        }
+{NUM}+                  { 
+                           printn("ICONST");
+                           yylval.t_int = new IntConst();
+                           yylval.t_int->value = atoi(yytext);
+                           return ICONST;
+                        }
 ({NUM}+[\.E]{NUM}+)|({NUM}+\.{NUM}+e[\+-]{NUM}+) { 
-                          printn("FCONST");     return FCONST;          }
+                           printn("FCONST");
+                           yylval.t_double = new DoubleConst();
+                           yylval.t_double->value = atof(yytext);
+                           return FCONST;                               }
 "/*"(\*[^/]|[^\*])*"*/" { printn("COMMENT");    return COMMENT;         }
-[ \t\v\n\f]		{                                               }
+[ \t\v\n\f]		         { printn("WHITE");                              }
 .                       { printn("IGNORING");                           }
 
 %%
@@ -61,11 +80,10 @@ ALPHANUM [A-za-z0-9]
 //    return 0;
 //}
 
-void printn(char *token)
+void printn(string token)
 {
 #ifdef DEBUG
-    printf(token);
-    printf("\n");
+   cout << token << endl;
 #endif
 }
 
