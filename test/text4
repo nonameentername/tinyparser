@@ -1,0 +1,3 @@
+int z, y, g;
+c[i][j] = (c[i][j] * a[i][k]) * b[k][j];
+c[i][j] = (c[i][j] * a[i][k]) * b[k][j];

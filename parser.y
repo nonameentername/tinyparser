@@ -16,7 +16,7 @@ void printp(string token);
 void yyerror(char *s); 
 int yylex();
 
-list<Statement*> statementList;
+TreeBuilder tree;
 
 %}
     /*** Other Declarations ***/
@@ -26,7 +26,7 @@ list<Statement*> statementList;
    AST::IntConst    *t_int;
    AST::DoubleConst *t_double;
    std::string      *t_string;
-   std::string      *t_type;
+   int              t_type;
    std::string      *t_operator;
    AST::Variable    *t_variable;
    AST::Variable1D  *t_variable1D;
@@ -64,11 +64,11 @@ list<Statement*> statementList;
 program
    : statement                      {
                                        printp("program:1");
-                                       statementList.push_back($<t_statement>1);
+                                       tree.statements.push_back($<t_statement>1);
                                     }
    | program statement              {
                                        printp("program:2");
-                                       statementList.push_back($<t_statement>2);
+                                       tree.statements.push_back($<t_statement>2);
                                     }
    ;
 
@@ -79,24 +79,28 @@ declaration_statement
                                        $<t_declaration>$->type = $<t_type>1;
                                        $<t_variable>2->type = $<t_type>1;
                                        $<t_declaration>$->variables.push_back($<t_variable>2);
+
+                                       tree.symbolTable[*$<t_variable>2->id] = $<t_variable>2->type;
                                     }
    | declaration_statement 
      ',' variable                   {
                                        printp("declaration_statement");
                                        $<t_declaration>$ = $<t_declaration>1;
-                                       $<t_variable>3->type = $<t_declaration>$->type;
+                                       $<t_variable>3->type = $<t_declaration>1->type;
                                        $<t_declaration>$->variables.push_back($<t_variable>3);
+
+                                       tree.symbolTable[*$<t_variable>3->id] = $<t_variable>3->type;
                                     }
    ;
 
 type
    : INT                            {
                                        printp("type");
-                                       $<t_type>$ = new string("int");
+                                       $<t_type>$ = INT_T;
                                     }
    | FLOAT                          {
                                        printp("type");
-                                       $<t_type>$ = new string("float");
+                                       $<t_type>$ = FLOAT_T;
                                     }
    ;
               
@@ -202,9 +206,12 @@ block_statement
    ;
 
 assignment_statement
-   : variable '=' 
+   : single_expression '=' 
      expression ';'                 {
                                        printp("assignment_statement");
+
+                                       tree.validateType($<t_argument>1, $<t_argument>3);
+                                          
                                        $<t_assignment>$ = new AssignmentStatement();
                                        $<t_assignment>$->variable = $<t_variable>1; 
                                        $<t_assignment>$->expression = $<t_expression>3; 
@@ -213,66 +220,102 @@ assignment_statement
 expression
    : expression OR expression       {
                                        printp("expression:1");
+
+                                       tree.validateType($<t_argument>1, $<t_argument>3);
+                                          
                                        $<t_expression>$ = new Expression();
                                        $<t_expression>$->left = $<t_argument>1;
                                        $<t_expression>$->operation = new string("OR");
                                        $<t_expression>$->right = $<t_argument>3;
+                                       $<t_expression>$->type = $<t_argument>1->type;
                                     }
    | expression AND expression      {
                                        printp("expression:2");
+
+                                       tree.validateType($<t_argument>1, $<t_argument>3);
+                                          
                                        $<t_expression>$ = new Expression();
                                        $<t_expression>$->left = $<t_argument>1;
                                        $<t_expression>$->operation = new string("AND");
                                        $<t_expression>$->right = $<t_argument>3;
+                                       $<t_expression>$->type = $<t_argument>1->type;
                                     }
    | expression EQ expression       {
                                        printp("expression:3");
+
+                                       tree.validateType($<t_argument>1, $<t_argument>3);
+                                          
                                        $<t_expression>$ = new Expression();
                                        $<t_expression>$->left = $<t_argument>1;
                                        $<t_expression>$->operation = new string("EQ");
                                        $<t_expression>$->right = $<t_argument>3;
+                                       $<t_expression>$->type = $<t_argument>1->type;
                                     }
    | expression '<' expression      {
                                        printp("expression:4");
+
+                                       tree.validateType($<t_argument>1, $<t_argument>3);
+                                          
                                        $<t_expression>$ = new Expression();
                                        $<t_expression>$->left = $<t_argument>1;
                                        $<t_expression>$->operation = new string("<");
                                        $<t_expression>$->right = $<t_argument>3;
+                                       $<t_expression>$->type = $<t_argument>1->type;
                                     } 
    | expression '>' expression      {
                                        printp("expression:5");
+
+                                       tree.validateType($<t_argument>1, $<t_argument>3);
+                                          
                                        $<t_expression>$ = new Expression();
                                        $<t_expression>$->left = $<t_argument>1;
                                        $<t_expression>$->operation = new string(">");
                                        $<t_expression>$->right = $<t_argument>3;
+                                       $<t_expression>$->type = $<t_argument>1->type;
                                     }
    | expression '+' expression      {
                                        printp("expression:6");
+
+                                       tree.validateType($<t_argument>1, $<t_argument>3);
+
                                        $<t_expression>$ = new Expression();
                                        $<t_expression>$->left = $<t_argument>1;
                                        $<t_expression>$->operation = new string("+");
                                        $<t_expression>$->right = $<t_argument>3;
+                                       $<t_expression>$->type = $<t_argument>1->type;
                                     }
    | expression '-' expression      {
                                        printp("expression:7");
+
+                                       tree.validateType($<t_argument>1, $<t_argument>3);
+                                          
                                        $<t_expression>$ = new Expression();
                                        $<t_expression>$->left = $<t_argument>1;
                                        $<t_expression>$->operation = new string("-");
                                        $<t_expression>$->right = $<t_argument>3;
+                                       $<t_expression>$->type = $<t_argument>1->type;
                                     }
    | expression '*' expression      {
                                        printp("expression:8");
+
+                                       tree.validateType($<t_argument>1, $<t_argument>3);
+                                          
                                        $<t_expression>$ = new Expression();
                                        $<t_expression>$->left = $<t_argument>1;
                                        $<t_expression>$->operation = new string("*");
                                        $<t_expression>$->right = $<t_argument>3;
+                                       $<t_expression>$->type = $<t_argument>1->type;
                                     }
    | expression '/' expression      {
                                        printp("expression:9");
+
+                                       tree.validateType($<t_argument>1, $<t_argument>3);
+                                          
                                        $<t_expression>$ = new Expression();
                                        $<t_expression>$->left = $<t_argument>1;
                                        $<t_expression>$->operation = new string("/");
                                        $<t_expression>$->right = $<t_argument>3;
+                                       $<t_expression>$->type = $<t_argument>1->type;
                                     }
    | '(' expression ')'             {
                                        printp("expression:10");
@@ -284,6 +327,7 @@ expression
                                        $<t_expression>$->left = $<t_argument>2;
                                        $<t_expression>$->operation = new string("!");
                                        $<t_expression>$->right = NULL;
+                                       $<t_expression>$->type = $<t_argument>2->type;
                                     }
    | single_expression              {
                                        printp("expression:12");
@@ -293,15 +337,20 @@ expression
 single_expression
    : variable                       {
                                        printp("single_expression:1");
-                                       $<t_argument>$ = $<t_argument>1;
+                                       $<t_variable>$ = $<t_variable>1;
+                                       if(tree.symbolTable.find(*$<t_variable>1->id) == tree.symbolTable.end())
+                                          throw "undefined variable";
+                                       $<t_variable>$->type = tree.symbolTable[*$<t_variable>1->id];
                                     }
    | ICONST                         {
                                        printp("single_expression:2");
                                        $<t_int>$ = $1;
+                                       $<t_int>$->type = INT_T;
                                     }
    | FCONST                         {
                                        printp("single_expression:3");
                                        $<t_double>$ = $1;
+                                       $<t_double>$->type = FLOAT_T;
                                     }
    ;       
 
@@ -312,12 +361,16 @@ single_expression
 int main(void)
 {
    /* Call the parser, then quit. */
-   yyparse();
-
-   list<Statement*>::iterator i;
-
-   for(i = statementList.begin(); i != statementList.end(); ++i)
-      (*i)->print();
+   
+   try
+   {
+      yyparse();
+      tree.print();
+   }
+   catch (char const* error)
+   {
+      cout << error << endl;
+   }
 
    return 0;
 }
