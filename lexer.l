@@ -49,6 +49,7 @@ ALPHANUM [a-zA-Z0-9]
 "while"                 { printn("WHILE");      return WHILE;           }
 "int"                   { printn("INT");        return INT;             }
 "float"                 { printn("FLOAT");      return FLOAT;           }
+"return"                { printn("RETURN");     return RETURN;          }
 {ALPHA}{ALPHANUM}*      {
                            printn("ID");
                            yylval.t_string = new string(yytext);

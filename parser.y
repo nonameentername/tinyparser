@@ -39,9 +39,12 @@ TreeBuilder tree;
    AST::BlockStatement  *t_block;
    AST::DeclarationStatement *t_declaration;
    AST::AssignmentStatement  *t_assignment;
+   AST::ReturnStatement *t_return;
+   AST::FunctionCall *t_functioncall;
+   AST::Function    *t_function;
 }
 
-%token IF ELSE WHILE INT FLOAT ID ICONST FCONST COMMENT
+%token IF ELSE WHILE INT FLOAT ID ICONST FCONST COMMENT RETURN
 %nonassoc IFELSE
 %token ';' '(' ')' ',' '{' '}' '[' ']' '='
 %left  OR
@@ -62,13 +65,47 @@ TreeBuilder tree;
 %%
     /*** Rules ***/
 program
-   : statement                      {
+   : functions body                 {
                                        printp("program:1");
+                                    }
+   | body                           {
+                                       printp("program:2");
+                                    }
+   ;
+
+functions
+   : function_declaration           {
+                                       printp("functions:1");
+                                       tree.functions.push_back($<t_function>1);
+                                    }
+   | functions 
+     function_declaration           {
+                                       printp("functions:2");
+                                       tree.functions.push_back($<t_function>2);
+                                    }
+   ;
+
+body
+   : statement                      {
+                                       printp("body:1");
                                        tree.statements.push_back($<t_statement>1);
                                     }
-   | program statement              {
-                                       printp("program:2");
+   | body statement                 {
+                                       printp("body:2");
                                        tree.statements.push_back($<t_statement>2);
+                                    }
+   ;
+
+function_declaration
+   : type ID
+     '(' declaration_statement ')'  
+      block_statement               { 
+                                       printp("function_declaration");
+                                       $<t_function>$ = new Function();
+                                       $<t_function>$->type = $<t_type>1;
+                                       $<t_function>$->id = $2;
+                                       $<t_function>$->parms = $<t_declaration>4;
+                                       $<t_function>$->statement = $<t_statement>6;
                                     }
    ;
 
@@ -109,11 +146,13 @@ variable
                                        printp("variable:1");
                                        $<t_variable>$ = new Variable();
                                        $<t_variable>$->id = $1;
+                                       $<t_variable>$->type = tree.getVariableType(*$1);
                                     }
    | ID '[' single_expression ']'   {
                                        printp("variable:2");
                                        $<t_variable1D>$ = new Variable1D();
                                        $<t_variable1D>$->id = $1;
+                                       $<t_variable>$->type = tree.getVariableType(*$1);
                                        $<t_variable1D>$->var1 = $<t_argument>3;
                                     }
    | ID '[' single_expression ']' 
@@ -121,6 +160,7 @@ variable
                                        printp("variable:3");
                                        $<t_variable2D>$ = new Variable2D();
                                        $<t_variable2D>$->id = $1;
+                                       $<t_variable>$->type = tree.getVariableType(*$1);
                                        $<t_variable2D>$->var1 = $<t_argument>3;
                                        $<t_variable2D>$->var2 = $<t_argument>6;
                                     }
@@ -147,11 +187,76 @@ statement
                                        printp("statement");
                                        $<t_statement>$ = $<t_declaration>1;
                                     }
+   | return_statement               {
+                                       printp("statement");
+                                       $<t_statement>$ = $<t_return>1;
+                                    }
    | COMMENT ';'                    {
                                        printp("statement");
                                     }
    ;
 
+function_call
+   : ID '(' ')'                     {
+                                       printp("function_call:1");
+
+                                       int funcType = tree.getFunctionType(*$1);
+                                       if(funcType == -1)
+                                          throw "undefined function";
+
+                                       $<t_functioncall>$ = new FunctionCall();
+                                       $<t_functioncall>$->id = $1;
+                                       $<t_functioncall>$->type = funcType;
+                                    } 
+   | ID '(' function_call_parms ')' {
+                                       printp("function_call:2");
+
+                                       int funcType = tree.getFunctionType(*$1);
+                                       if(funcType == -1)
+                                          throw "undefined function";
+
+                                       $<t_functioncall>$ = new FunctionCall();
+                                       $<t_functioncall>$->id = $1;
+                                       $<t_functioncall>$->type = funcType;
+                                       $<t_functioncall>$->parms = tree.tempParmList;
+                                    }
+   ;
+
+function_call_parms
+   : variable                       {
+                                       printp("function_call_parms:1");
+
+                                       tree.tempParmList.clear();
+                                       int varType = tree.getVariableType(*$<t_variable>1->id);
+
+                                       if(varType == -1)
+                                          throw "undefined variable";
+
+                                       $<t_variable>1->type = varType;
+                                       tree.tempParmList.push_back($<t_variable>1);
+                                    }
+   | function_call_parms
+     ',' variable                   {
+                                       printp("function_call_parms:2");
+
+                                       int varType = tree.getVariableType(*$<t_variable>3->id);
+
+                                       if(varType == -1)
+                                          throw "undefined variable";
+
+                                       $<t_variable>3->type = varType;
+                                       tree.tempParmList.push_back($<t_variable>3);
+                                    }
+   ;
+
+return_statement
+   : RETURN expression ';'          {
+                                       printp("return_statement");
+                                       $<t_return>$ = new ReturnStatement();
+                                       $<t_return>$->type = $<t_expression>2->type;
+                                       $<t_return>$->expression = $<t_expression>2;
+                                    }
+        
 while_statement
    : WHILE '(' expression ')'
      statement                      {
@@ -161,7 +266,7 @@ while_statement
                                        $<t_while>$->statement1 = $<t_statement>5;
                                     }
    ;
-        
+
 if_statement
    : IF '(' expression ')'
      statement                      {
@@ -206,9 +311,10 @@ block_statement
    ;
 
 assignment_statement
-   : single_expression '=' 
+   : variable '=' 
      expression ';'                 {
                                        printp("assignment_statement");
+
 
                                        tree.validateType($<t_argument>1, $<t_argument>3);
                                           
@@ -338,9 +444,13 @@ single_expression
    : variable                       {
                                        printp("single_expression:1");
                                        $<t_variable>$ = $<t_variable>1;
-                                       if(tree.symbolTable.find(*$<t_variable>1->id) == tree.symbolTable.end())
+
+                                       int varType = tree.getVariableType(*$<t_variable>1->id);
+
+                                       if(varType == -1)
                                           throw "undefined variable";
-                                       $<t_variable>$->type = tree.symbolTable[*$<t_variable>1->id];
+
+                                       $<t_variable>$->type = varType;
                                     }
    | ICONST                         {
                                        printp("single_expression:2");
@@ -352,20 +462,33 @@ single_expression
                                        $<t_double>$ = $1;
                                        $<t_double>$->type = FLOAT_T;
                                     }
+   | function_call                  {
+                                       printp("single_expression:4");
+                                       $<t_functioncall>$ = $<t_functioncall>1;
+                                    }
    ;       
 
 
 %%
     /*** Subroutines ***/
 
-int main(void)
+int main(int argc, char **argv)
 {
-   /* Call the parser, then quit. */
-   
+   string gConst   = "-g";
+   bool printGraph = false;
+
+   if(argc > 1 && gConst.compare(argv[1]) == 0)
+      printGraph = true;
+ 
    try
    {
+   /* Call the parser, then quit. */
       yyparse();
-      tree.print();
+
+      if(printGraph)
+         tree.BuildControlFlowGraph();
+      else
+         tree.print();
    }
    catch (char const* error)
    {

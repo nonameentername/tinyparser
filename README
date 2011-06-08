@@ -1,4 +1,4 @@
-This project used flex and bison to generate C++
+This project uses flex and bison to generate C++
 code that parses a subset of the C language.
 
 To build this project type the following into a console:
@@ -7,4 +7,20 @@ To build this project type the following into a console:
 To run the program in unix/linux type the following:
    cat <textfile> | parser
 
-The project works.
+This will output an abstract syntax tree.
+
+To create a dot file of the control flow graph type in the 
+following:
+   cat <textfile> | parser -g > <dotfile>
+example:
+   cat test/text1 | ./parser -g > output.dot
+
+Once the dot file has been created, graphviz can be used
+to generate a graph from the dot file:
+   dot <dotfile> -Tpdf > <pdffile>
+or:
+   dot <dotfile> -Tsvg > <svgfile>
+example:
+   dot output.dot -Tsvg > output.svg
+
+This project works.

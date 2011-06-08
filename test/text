@@ -1,0 +1,22 @@
+int add( int x, y )
+{
+   int w;
+   w = x + y;
+   return w;
+}
+
+int const( int z )
+{
+   return z;
+}
+
+int i, j, k;
+
+while (i < 100) {
+  j = 0;
+  j = j + 1;
+  j = add(i, j);
+  i = const(i);
+}
+
+k = j + i;
